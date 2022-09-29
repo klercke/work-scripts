@@ -30,7 +30,7 @@ While (!($stop)){
     }
 }
 
-Write-Host "You are removing the ability for user $($admin) access to all user mailboxes in the $($orginfo.Name) ($($orginfo.Identity)) tenant. They will retain full control of their own mailbox. Type `"y`" to confirm"
+Write-Host "You are removing the ability for user $($admin) access to all user mailboxes in the $($orginfo.Name) ($($orginfo.Identity)) tenant. They will retain full control of their own mailbox. Type `"y`" to confirm."
 $confirm = Read-Host
 if ($confirm -eq "y") {
     ($save = Get-Mailbox d0c_admin@7wvhv3.onmicrosoft.com | Select-Object Alias) | out-null

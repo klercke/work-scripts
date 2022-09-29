@@ -30,8 +30,9 @@ While (!($stop)){
     }
 }
 
-Write-Host "You are granting the user $($admin) access to all user mailboxes in the $($orginfo.Name) ($($orginfo.Identity)) tenant. Type `"y`" to confirm"
+Write-Host "You are granting the user $($admin) access to all user mailboxes in the $($orginfo.Name) ($($orginfo.Identity)) tenant. Type `"y`" to confirm."
 $confirm = Read-Host
 if ($confirm -eq "y") {
     Get-Mailbox -ResultSize unlimited -Filter {(RecipientTypeDetails -eq 'UserMailbox') -and (Alias -ne 'Admin')} | Add-MailboxPermission -User $admin -AccessRights fullaccess -InheritanceType all -AutoMapping:$false
 }
+

@@ -19,12 +19,12 @@ This script will connect to a specified Exchange online session and give the spe
 #### Example
 
 ```
-PS D:\Documents\GitHub\work-scripts\win\powershell\exchange> .\make-admin-on-all-mailboxes.ps1
+PS > .\make-admin-on-all-mailboxes.ps1
 Enter the email address of an admin account on the tenant you would like connect to:
-login: d0c_admin@7wvhv3.onmicrosoft.com
+login: admin@contoso.com
 Enter the email of the account that will have full access to all mailboxes. It is HIGHLY recommended that this is a dedicated admin account.
-admin email: d0c_admin@7wvhv3.onmicrosoft.com
-You are granting the user d0c_admin@7wvhv3.onmicrosoft.com access to all user mailboxes in the 7wvhv3.onmicrosoft.com (7wvhv3.onmicrosoft.com) tenant. Type "y" to confirm
+admin email: admin@contoso.com
+You are granting the user admin@contoso.com access to all user mailboxes in the contoso.com (contoso.com) tenant. Type "y" to confirm
 y
 
 Identity             User                 AccessRights                                                                                                                                                                                IsInherited Deny
@@ -61,10 +61,29 @@ This script will connect to a specified Exchange online session and remove full 
 #### Example
 
 ```
+PS > .\remove-admin-on-all-mailboxes.ps1
 Enter the email address of an admin account on the tenant you would like connect to:
-login: d0c_admin@7wvhv3.onmicrosoft.com
+login: admin@contoso.com
 Enter the email of the account that will lose access to all mailboxes.
-admin email: d0c_admin@7wvhv3.onmicrosoft.com
-You are removing the ability for user d0c_admin@7wvhv3.onmicrosoft.com access to all user mailboxes in the 7wvhv3.onmicrosoft.com (7wvhv3.onmicrosoft.com) tenant. They will retain full control of their own mailbox. Type "y" to confirm
+admin email: admin@contoso.com
+You are removing the ability for user admin@contoso.com access to all user mailboxes in the contoso.com (contoso.com) tenant. They will retain full control of their own mailbox. Type "y" to confirm
 y
+```
+
+### remove-hold-on-all-mailboxes.ps1
+
+#### Usage
+
+```remove-hold-on-all-mailboxes.ps1```
+
+#### Example
+
+```
+PS > .\remove-hold-on-all-mailboxes.ps1
+Enter the email address of an admin account on the tenant you would like connect to:
+login: admin@contoso.com
+
+You are removing all holds on user inboxes in the contoso.com (contoso.com) tenant. Type "y" to confirm.
+y
+Done!
 ```
