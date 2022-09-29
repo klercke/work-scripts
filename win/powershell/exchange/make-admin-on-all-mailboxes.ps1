@@ -1,4 +1,4 @@
-# File: remove-admin-on-all-mailboxes.ps1
+# File: make-admin-on-all-mailboxes.ps1
 # Version: v1.0.0
 # Author: Konnor Klercke
 
