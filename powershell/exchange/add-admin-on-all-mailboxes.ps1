@@ -1,4 +1,4 @@
-# File: make-admin-on-all-mailboxes.ps1
+# File: add-admin-on-all-mailboxes.ps1
 # Version: v1.0.0
 # Author: Konnor Klercke
 
@@ -34,5 +34,5 @@ Write-Host "You are granting the user $($admin) access to all user mailboxes in 
 $confirm = Read-Host
 if ($confirm -eq "y") {
     Get-Mailbox -ResultSize unlimited -Filter {(RecipientTypeDetails -eq 'UserMailbox') -and (Alias -ne 'Admin')} | Add-MailboxPermission -User $admin -AccessRights fullaccess -InheritanceType all -AutoMapping:$false
+    Write-Host "Done!"
 }
-

@@ -1,4 +1,4 @@
-# File: remove-hold-on-all-mailboxes.ps1
+# File: enable-in-place-archive-on-all-mailboxes.ps1
 # Version: v1.0.0
 # Author: Konnor Klercke
 
@@ -17,10 +17,9 @@ Catch {
 }
 $orginfo = Get-OrganizationConfig | Select-Object Name, Identity
 
-Write-Host "You are removing all holds on user inboxes in the $($orginfo.Name) ($($orginfo.Identity)) tenant. Type `"y`" to confirm."
+Write-Host "You are enabling the in-place archive for all user mailboxes in the $($orginfo.Name) ($($orginfo.Identity)) tenant. Type `"y`" to confirm."
 $confirm = Read-Host
 if ($confirm -eq "y") {
-    Get-Mailbox -ResultSize unlimited -Filter {(RecipientTypeDetails -eq 'UserMailbox') -and (Alias -ne 'Admin')} | Set-Mailbox -RemoveDelayHoldApplied
-    Get-Mailbox -ResultSize unlimited -Filter {(RecipientTypeDetails -eq 'UserMailbox') -and (Alias -ne 'Admin')} | Set-Mailbox -RemoveDelayReleaseHoldApplied
+    Get-Mailbox -ResultSize unlimited -Filter {(RecipientTypeDetails -eq 'UserMailbox') -and (Alias -ne 'Admin')} | Enable-Mailbox -Archive
     Write-Host "Done!"
 }
