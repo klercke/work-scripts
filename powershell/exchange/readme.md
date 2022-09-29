@@ -17,7 +17,7 @@ This script will connect to a specified Exchange online session and give the spe
 #### Example
 
 ```
-PS > .\add-admin-on-all-mailboxes.ps1
+PS> .\add-admin-on-all-mailboxes.ps1
 Enter the email address of an admin account on the tenant you would like connect to:
 login: admin@contoso.com
 Enter the email of the account that will have full access to all mailboxes. It is HIGHLY recommended that this is a dedicated admin account.
@@ -57,7 +57,7 @@ This script will connect to a specified Exchange online session and remove full 
 #### Example
 
 ```
-PS > .\remove-admin-on-all-mailboxes.ps1
+PS> .\remove-admin-on-all-mailboxes.ps1
 Enter the email address of an admin account on the tenant you would like connect to:
 login: admin@contoso.com
 Enter the email of the account that will lose access to all mailboxes.
@@ -77,7 +77,7 @@ This script will attempt to remove all holds on all mailboxes in the tenant.
 #### Example
 
 ```
-PS > .\remove-hold-on-all-mailboxes.ps1
+PS> .\remove-hold-on-all-mailboxes.ps1
 Enter the email address of an admin account on the tenant you would like connect to:
 login: admin@contoso.com
 
@@ -97,7 +97,7 @@ This script will turn on the in-place archive on all mailboxes in the tenant.
 #### Example
 
 ```
-PS > .\enable-in-place-archive-on-all-mailboxes.ps1
+PS> .\enable-in-place-archive-on-all-mailboxes.ps1
 Enter the email address of an admin account on the tenant you would like connect to:
 login: admin@contoso.com
 You are enabling the in-place archive for all user mailboxes in the contoso.com (contoso.com) tenant. Type "y" to confirm.
@@ -136,10 +136,50 @@ This script will turn off the in-place archive on all mailboxes in the tenant.
 #### Example
 
 ```
-PS D:\Documents\GitHub\work-scripts\powershell\exchange> .\disable-in-place-archive-on-all-mailboxes.ps1
+PS> .\disable-in-place-archive-on-all-mailboxes.ps1
 Enter the email address of an admin account on the tenant you would like connect to:
 login: admin@contoso.com
 You are removing the in-place archive for all user mailboxes in the contoso.com (contoso.com) tenant. Type "y" to confirm.
+y
+Done!
+```
+
+### disable-litiagtion-hold-on-all-mailboxes.ps1
+
+This script will disable litigation holds on all user mailboxes in the tenant.
+
+### Usage
+
+```disable-litiagtion-hold-on-all-mailboxes.ps1```
+
+#### Example
+
+```
+PS> .\disable-litigation-hold-on-all-mailboxes.ps1
+Enter the email address of an admin account on the tenant you would like connect to:
+login: admin@contoso.com
+You are disabling the litigation hold on all user mailboxes in the contoso.com (contoso.com) tenant. Type "y" to confirm.
+y
+Done!
+```
+
+### enable-litiagtion-hold-on-all-mailboxes.ps1
+
+This script will enable a litigation hold with a specified duration on all user mailboxes in the tenant.
+
+### Usage
+
+```enable-litiagtion-hold-on-all-mailboxes.ps1```
+
+#### Example
+
+```
+PS> .\enable-litigation-hold-on-all-mailboxes.ps1
+Enter the email address of an admin account on the tenant you would like connect to:
+login: admin@contoso.com
+Enter the duration of the litigation hold in days. Enter -1 for unlimited.
+hold duration: -1
+You are enabling a litigation hold on all user mailboxes in the contoso.com (contoso.com) tenant. Type "y" to confirm.
 y
 Done!
 ```
