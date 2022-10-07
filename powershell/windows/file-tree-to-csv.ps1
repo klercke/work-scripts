@@ -1,13 +1,16 @@
 # File: file-tree-to-csv.ps1
-# Version: v1.0.0
+# Version: v1.1.0
 # Author: Konnor Klercke
 
-# Get output filename, default to tree.csv
-Write-Host "Please enter the output filename:"
-$outfile = Read-Host -Prompt "filename [tree.csv]"
-if ([string]::IsNullOrWhiteSpace($outfile)) {
-    $outfile = '.\tree.csv'
-}
+# Script options
+[cmdletbinding()]
+param(
+    [Parameter(HelpMessage="Output filename")]
+    [string]$outfile = ".\tree.csv",
+
+    [Parameter(HelpMessage="Root search directory")]
+    [string]$rootpath = "."
+)
 
 # Check if output file exists, if so confirm it is okay to delete and then do so
 if (Test-Path $outfile -PathType Leaf) {
@@ -22,13 +25,6 @@ if (Test-Path $outfile -PathType Leaf) {
     }
 }
 
-# Get the root directory of the tree
-Write-Host "Please enter the root search path:"
-$rootpath = Read-Host -Prompt "path [.]"
-if ([string]::IsNullOrWhiteSpace($rootpath)) {
-    $rootpath = '.'
-}
-
 # Search and build the CSV
-Get-ChildItem -Recurse -Path $rootpath | ForEach-Object {Write-Output $_.FullName >> $outfile}
+Get-ChildItem -Recurse -Path $rootpath | ForEach-Object {Write-Output $_.FullName >> $outfile; Write-Verbose "$($_)"}
 Write-Host "Done!"

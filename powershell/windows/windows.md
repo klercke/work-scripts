@@ -12,18 +12,23 @@ This script will iterate over every sub-directory of the given root directory an
 
 #### Usage
 
-```directory-tree-to-csv.ps1```
+```directory-tree-to-csv.ps1 [[-outfile] <string>] [[-rootpath] <string>] [<CommonParameters>]```
+
+#### Options
+
+ **Outfile**: The filename of the CSV that will be created. This can also be a path. If the file exists, it will be destroyed.
+
+ **Rootpath**: The root directory to begin the search in. It will not be included in the CSV.
+
+ **Verbose**: This will output each line to the console as it is added to the CSV
+
 
 #### Example
 
 ```
 PS> .\directory-tree-to-csv.ps1
-Please enter the output filename:
-filename [tree.csv]:
 .\tree.csv already exists. Overwrite it? Type "y" to confirm.
 y
-Please enter the root search path:
-path [.]:
 Done!
 ```
 
@@ -33,17 +38,21 @@ This script will iterate over every file and sub-directory (and those sub-direct
 
 #### Usage
 
-```file-tree-to-csv.ps1```
+```file-tree-to-csv.ps1 [[-outfile] <string>] [[-rootpath] <string>] [<CommonParameters>]```
+
+#### Options
+
+ **Outfile**: The filename of the CSV that will be created. This can also be a path. If the file exists, it will be destroyed.
+
+ **Rootpath**: The root directory to begin the search in. It will not be included in the CSV.
+
+ **Verbose**: This will output each line to the console as it is added to the CSV
 
 #### Example
 
 ```
-PS> file-tree-to-csv.ps1
-Please enter the output filename:
-filename [tree.csv]:
+PS> .\file-tree-to-csv.ps1
 .\tree.csv already exists. Overwrite it? Type "y" to confirm.
 y
-Please enter the root search path:
-path [.]:
 Done!
 ```
