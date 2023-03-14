@@ -8,7 +8,7 @@ These scripts will help collect data for troubleshooting
 
 ### create-port-listener.ps1
 
-This script will iterate over every sub-directory of the given root directory and create a CSV containing the full path to each of them, one item per line.
+This script will create a port listener on a specified port and waits for a connection to be opened on that port, then exits. Optionally, stays open until the window is closed.
 
 #### Usage
 
