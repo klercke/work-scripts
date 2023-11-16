@@ -30,6 +30,7 @@ class User {
     [string]        $FirstName
     [mailaddress]   $EmailAddress
     [string]        $OnPremUPN
+    [array]         $ConsistencyGUID
     [string]        $Note
 
     User(
@@ -41,7 +42,6 @@ class User {
         $this.FirstName = $FirstName
         $this.EmailAddress = $EmailAddress
         $this.Note = ""
-        $this.OnPremUPN = ""
     }
 
     # Update note to include reasons why this user may not be compliant
@@ -96,10 +96,10 @@ Write-Host "Found $FailedEmailDomainCount users with the incorrect email domain.
 # Check AD accounts
 Write-Host "Checking to make sure all users exist in AD..."
 $ADDomain = Get-ADDomain
-Write-Host "Checking by sAMAccountName"
 $FailedSamAccountCount = 0
+$NoConsistencyGuidCount = 0
 ForEach ($User in $Users) {
-    [Microsoft.ActiveDirectory.Management.ADAccount] $OnPremUser = Get-Aduser -SearchBase $ADDomain.DistinguishedName -Server $ADDomain.PDCEmulator -Filter "SamAccountName -eq '$(([mailaddress]$User.EmailAddress).User)'"
+    [Microsoft.ActiveDirectory.Management.ADAccount] $OnPremUser = Get-AdUser -SearchBase $ADDomain.DistinguishedName -Server $ADDomain.PDCEmulator -Property "mS-DS-ConsistencyGUID" -Filter "SamAccountName -eq '$(([mailaddress]$User.EmailAddress).User)'"
     if ($OnPremUser -eq $()) {
         # User was not found in AD
         $User.UpdateNote("sAMAccountName not found")
@@ -107,17 +107,31 @@ ForEach ($User in $Users) {
     }
     else {
         $User.OnPremUPN = $OnPremUser.UserPrincipalName
+        if (!$OnPremUser.'mS-DS-ConsistencyGUID') {
+            # User can not sign in with Duo SSO if this is not set
+            $User.UpdateNote("mS-DS-ConsistencyGUID not set")
+            $NoConsistencyGuidCount++
+        }
+        else {
+            $User.ConsistencyGUID = $OnPremUser.'mS-DS-ConsistencyGUID'
+        }
     }
 }
 Write-Host "$FailedSamAccountCount users could not be found by sAMAccountName"
+Write-Host "$NoConsistencyGuidCount users do not have mS-DS-ConsistencyGUID set."
 
 # Export users to CSV
 if ($OutFile -eq "") { $OutFile = "./Duo-Preflight-$($EmailDomain.Replace('.', '-')).csv" }
 if ($ExportOnlyProblematicUsers) {
     Write-Host "Exporting all users who may have account issues to $OutFile..."
-    $Users | Where-Object Note -ne "" | Export-Csv -Path $OutFile 
+    $Users |
+        Where-Object Note -ne "" | 
+        Select-Object LastName, FirstName, EmailAddress, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
+        Export-Csv -Path $OutFile 
 }
 else {
     Write-Host "Exporting all users to $OutFile..."
-    $Users | Export-Csv -Path $OutFile 
+    $Users | 
+        Select-Object LastName, FirstName, EmailAddress, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
+        Export-Csv -Path $OutFile 
 }
