@@ -16,6 +16,7 @@ if (-Not(Get-Module -ListAvailable -Name ActiveDirectory)) {
     Read-Host "Press Enter to exit"
     Exit
 }
+Import-Module ActiveDirectory
 
 # Define User class
 class User {
@@ -103,3 +104,5 @@ ForEach ($User in $Users) {
     }
 }
 Write-Host "$FailedSamAccountCount users could not be found by sAMAccountName"
+
+# Export users to CSV
