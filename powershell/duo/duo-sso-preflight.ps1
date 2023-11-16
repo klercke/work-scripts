@@ -20,12 +20,19 @@ param(
 )
 
 # Check For required modules
+Write-Host ""
 if (-Not(Get-Module -ListAvailable -Name ActiveDirectory)) {
-    Write-Host "The ActiveDirectory module is missing. Please see https://learn.microsoft.com/en-us/powershell/module/activedirectory/" 
+    Write-Host "The ActiveDirectory module is missing. Please see https://learn.microsoft.com/en-us/powershell/module/activedirectory/"
     Read-Host "Press Enter to exit"
     Exit
 }
 Import-Module ActiveDirectory
+if (-Not(Get-Module -ListAvailable -Name Microsoft.Graph)) {
+    Write-Host "The Microsoft Graph module is missing. Please see https://learn.microsoft.com/en-us/powershell/module/microsoftgraph/"
+    Read-Host "Press Enter to exit"
+    Exit
+}
+Import-Module Microsoft.Graph
 
 # Define User class
 class User {
@@ -33,6 +40,7 @@ class User {
     [string]        $FirstName
     [mailaddress]   $EmailAddress
     [string]        $OnPremUPN
+    [string]        $EntraUPN
     [array]         $ConsistencyGUID
     [string]        $Note
 
@@ -58,12 +66,16 @@ class User {
     }
 }
 
+# Connect to Entra ID
+Write-Host "Please sign in to Entra ID with an account that has User.Read.All permissions"
+Connect-MgGraph -Scopes "User.Read.All" -NoWelcome
+
 # Import users into an array of Users
-Write-Host "Importing users..."
+Write-Host "Importing users from CSV..."
 $UsersFromCsv = Import-Csv -Path $UserCsv
 $Users = @()
 ForEach ($User in $UsersFromCsv) {
-    $UserObject = @([User]::new($User."LastName", $User."FirstName", $User."Email")) 
+    $UserObject = @([User]::new($User."LastName", $User."FirstName", $User."Email"))
     $Users += $UserObject
 }
 $UserCount = $Users.Length
@@ -97,6 +109,7 @@ ForEach ($User in $Users) {
 Write-Host "Found $FailedEmailDomainCount users with the incorrect email domain."
 
 # Check AD accounts
+# TODO: Add checks for email attribute
 Write-Host "Checking to make sure all users exist in AD..."
 $ADDomain = Get-ADDomain
 $FailedSamAccountCount = 0
@@ -123,6 +136,23 @@ ForEach ($User in $Users) {
 Write-Host "$FailedSamAccountCount users could not be found by sAMAccountName"
 Write-Host "$NoConsistencyGuidCount users do not have mS-DS-ConsistencyGUID set."
 
+# Check Entra ID Users
+# TODO: Add additional checks using other attributes. e.g. for users not found by ImmutableId, try to find them by email or full name
+Write-Host "Checking to make sure each user exists in Entra ID..."
+Write-Host "Checking via mS-DS-ConsistencyGUID..."
+$UsersNotInEntraByGUID = 0
+foreach ($User in ($Users | Where-Object ConsistencyGUID)) {
+    $ImmutableId = [system.convert]::ToBase64String(([GUID]$User.ConsistencyGUID).ToByteArray())
+    $EntraUser = Get-MgUser -Filter "onPremisesImmutableId eq '$ImmutableId'"
+    if ($EntraUser) {
+        $User.EntraUPN = $EntraUser.UserPrincipalName
+    }
+    else {
+        $User.UpdateNote("Could not find Entra user by onPremisesImmutableId")
+        $UsersNotInEntraByGUID++
+    }
+}
+
 # Export users to CSV
 if ($OutFile -eq "") { $OutFile = "./Duo-Preflight-$($EmailDomain.Replace('.', '-')).csv" }
 if ($VerboseExport) {
@@ -130,13 +160,13 @@ if ($VerboseExport) {
         Write-Host "Exporting all users who may have account issues to $OutFile..."
         $Users |
             Where-Object Note -ne "" | 
-            Select-Object LastName, FirstName, EmailAddress, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
+            Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
             Export-Csv -Path $OutFile 
     }
     else {
         Write-Host "Exporting all users to $OutFile..."
         $Users | 
-            Select-Object LastName, FirstName, EmailAddress, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
+            Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
             Export-Csv -Path $OutFile 
     }
 }
