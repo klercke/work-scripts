@@ -155,6 +155,7 @@ foreach ($User in ($Users | Where-Object ConsistencyGUID)) {
         $UsersNotInEntraByGUID++
     }
 }
+Write-Host "$UsersNotInEntraByGUID could not be found in Entra by ImmutableId"
 
 # Export users to CSV
 if ($OutFile -eq "") { $OutFile = "./Duo-Preflight-$($EmailDomain.Replace('.', '-')).csv" }
