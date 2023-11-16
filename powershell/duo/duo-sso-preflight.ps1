@@ -112,13 +112,16 @@ ForEach ($User in $Users) {
 Write-Host "Found $FailedEmailDomainCount users with the incorrect email domain."
 
 # Check AD accounts
-# TODO: Add checks for email attribute
-Write-Host "Checking to make sure all users exist in AD..."
+# TODO: Check for users by real name
+Write-Host "Checking AD..."
+Write-Host "Checking via sAMAccountName..."
 $ADDomain = Get-ADDomain
 $FailedSamAccountCount = 0
 $NoConsistencyGuidCount = 0
+$NoEmailSetCount = 0
+$EmailIncorrectCount = 0
 ForEach ($User in $Users) {
-    [Microsoft.ActiveDirectory.Management.ADAccount] $OnPremUser = Get-AdUser -SearchBase $ADDomain.DistinguishedName -Server $ADDomain.PDCEmulator -Property "mS-DS-ConsistencyGUID" -Filter "SamAccountName -eq '$(([mailaddress]$User.EmailAddress).User)'"
+    [Microsoft.ActiveDirectory.Management.ADAccount] $OnPremUser = Get-AdUser -SearchBase $ADDomain.DistinguishedName -Server $ADDomain.PDCEmulator -Property "mS-DS-ConsistencyGUID", Mail -Filter "SamAccountName -eq '$(([mailaddress]$User.EmailAddress).User)'"
     if ($OnPremUser -eq $()) {
         # User was not found in AD
         $User.UpdateNote("sAMAccountName not found")
@@ -134,14 +137,28 @@ ForEach ($User in $Users) {
         else {
             $User.ConsistencyGUID = $OnPremUser.'mS-DS-ConsistencyGUID'
         }
+        # Make sure user has email set
+        if (!$OnPremUser.Mail) {
+            $User.UpdateNote("AD mail attribute not set")
+            $NoEmailSetCount++
+        }
+        else {
+            # Make sure the email is correct
+            if ($OnPremUser.Mail -ne $User.EmailAddress) {
+                $User.UpdateNote("AD mail attribute incorrect")
+                $EmailIncorrectCount++
+            }
+        }
     }
 }
 Write-Host "$FailedSamAccountCount users could not be found by sAMAccountName"
-Write-Host "$NoConsistencyGuidCount users do not have mS-DS-ConsistencyGUID set."
+Write-Host "$NoConsistencyGuidCount users do not have mS-DS-ConsistencyGUID set"
+Write-Host "$NoEmailSetCount users do not have an email set in AD"
+Write-Host "$EmailIncorrectCount users have the wrong email set in AD"
 
 # Check Entra ID Users
 # TODO: Add additional checks using other attributes. e.g. for users not found by ImmutableId, try to find them by email or full name
-Write-Host "Checking to make sure each user exists in Entra ID..."
+Write-Host "Checking Entra..."
 Write-Host "Checking via mS-DS-ConsistencyGUID..."
 $UsersNotInEntraByGUID = 0
 foreach ($User in ($Users | Where-Object ConsistencyGUID)) {
@@ -164,13 +181,13 @@ if ($VerboseExport) {
         Write-Host "Exporting all users who may have account issues to $OutFile..."
         $Users |
             Where-Object Note -ne "" | 
-            Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
+            Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Label='ConsistencyGUID'; Expression={$_.ConsistencyGUID -join '-'}}, Note |
             Export-Csv -Path $OutFile 
     }
     else {
         Write-Host "Exporting all users to $OutFile..."
         $Users | 
-            Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
+            Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Label='ConsistencyGUID'; Expression={$_.ConsistencyGUID -join '-'}}, Note |
             Export-Csv -Path $OutFile 
     }
 }
