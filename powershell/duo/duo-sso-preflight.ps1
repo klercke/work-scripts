@@ -7,7 +7,13 @@
 [cmdletbinding()]
 param(
     [Parameter(HelpMessage="Filename of user data CSV to import", Mandatory=$true)]
-    [string]$UserCsv
+    [string]$UserCsv,
+
+    [Parameter(HelpMessage="Export only users whose accounts are flagged as problematic")]
+    [bool]$ExportOnlyProblematicUsers = $false,
+    
+    [Parameter(HelpMessage="Output filename")]
+    [string]$OutFile = ""
 )
 
 # Check For required modules
@@ -23,8 +29,8 @@ class User {
     [string]        $LastName
     [string]        $FirstName
     [mailaddress]   $EmailAddress
-    [string]        $Note
     [string]        $OnPremUPN
+    [string]        $Note
 
     User(
         [string]$LastName,
@@ -106,3 +112,12 @@ ForEach ($User in $Users) {
 Write-Host "$FailedSamAccountCount users could not be found by sAMAccountName"
 
 # Export users to CSV
+if ($OutFile -eq "") { $OutFile = "./Duo-Preflight-$($EmailDomain.Replace('.', '-')).csv" }
+if ($ExportOnlyProblematicUsers) {
+    Write-Host "Exporting all users who may have account issues to $OutFile..."
+    $Users | Where-Object Note -ne "" | Export-Csv -Path $OutFile 
+}
+else {
+    Write-Host "Exporting all users to $OutFile..."
+    $Users | Export-Csv -Path $OutFile 
+}
