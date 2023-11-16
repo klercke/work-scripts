@@ -10,6 +10,13 @@ param(
     [string]$UserCsv
 )
 
+# Check For required modules
+if (-Not(Get-Module -ListAvailable -Name ActiveDirectory)) {
+    Write-Host "The ActiveDirectory module is missing. Please see https://learn.microsoft.com/en-us/powershell/module/activedirectory/" 
+    Read-Host "Press Enter to exit"
+    Exit
+}
+
 # Define User class
 class User {
     [string]        $LastName
@@ -43,12 +50,13 @@ Write-Host "Imported $UserCount users."
 
 # Find email domain
 $EmailDomain = ([mailaddress]$Users[0].EmailAddress).Host
-$EmailDomainConfirmed = "n"
+$EmailDomainConfirmed = ""
 While ($EmailDomainConfirmed.ToLower() -ne "y") {
     Write-Host "Is $EmailDomain the email domain that will be federated?"
-    $EmailDomainConfirmed = Read-Host "Email domain correct? [y/N]"
+    if (!($EmailDomainConfirmed = Read-Host "Email domain correct? [Y/n]")) {$EmailDomainConfirmed = "y"}
 
-    if ($EmailDomainConfirmed.ToLower() -ne "y" ) {
+
+    if ($EmailDomainConfirmed.ToLower() -eq "n" ) {
         Write-Host "Please enter the correct email domain WITHOUT the leading @ (ex. contoso.com):"
         $EmailDomain = Read-Host "Email domain"
     }
