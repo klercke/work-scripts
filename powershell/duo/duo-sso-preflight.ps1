@@ -35,7 +35,7 @@ if (-Not(Get-Module -ListAvailable -Name Microsoft.Graph)) {
     Read-Host "Press Enter to exit"
     Exit
 }
-Import-Module Microsoft.Graph
+Import-Module Microsoft.Graph.Users
 
 # Define User class
 class User {
