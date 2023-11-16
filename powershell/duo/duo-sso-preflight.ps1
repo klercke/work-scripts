@@ -16,7 +16,10 @@ param(
     [string]$OutFile = "",
 
     [Parameter(HelpMessage="Verbose outfile")]
-    [bool]$VerboseExport = $false
+    [bool]$VerboseExport = $false,
+
+    [Parameter(HelpMessage="Disconnect from Graph after running")]
+    [bool]$DisconnectFromGraph = $true
 )
 
 # Check For required modules
@@ -185,3 +188,5 @@ else {
             Export-Csv -Path $OutFile 
     }
 }
+
+if ($DisconnectFromGraph) { Disconnect-MgGraph | Out-Null }
