@@ -13,7 +13,10 @@ param(
     [bool]$ExportOnlyProblematicUsers = $false,
     
     [Parameter(HelpMessage="Output filename")]
-    [string]$OutFile = ""
+    [string]$OutFile = "",
+
+    [Parameter(HelpMessage="Verbose outfile")]
+    [bool]$VerboseExport = $false
 )
 
 # Check For required modules
@@ -122,16 +125,33 @@ Write-Host "$NoConsistencyGuidCount users do not have mS-DS-ConsistencyGUID set.
 
 # Export users to CSV
 if ($OutFile -eq "") { $OutFile = "./Duo-Preflight-$($EmailDomain.Replace('.', '-')).csv" }
-if ($ExportOnlyProblematicUsers) {
-    Write-Host "Exporting all users who may have account issues to $OutFile..."
-    $Users |
-        Where-Object Note -ne "" | 
-        Select-Object LastName, FirstName, EmailAddress, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
-        Export-Csv -Path $OutFile 
+if ($VerboseExport) {
+    if ($ExportOnlyProblematicUsers) {
+        Write-Host "Exporting all users who may have account issues to $OutFile..."
+        $Users |
+            Where-Object Note -ne "" | 
+            Select-Object LastName, FirstName, EmailAddress, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
+            Export-Csv -Path $OutFile 
+    }
+    else {
+        Write-Host "Exporting all users to $OutFile..."
+        $Users | 
+            Select-Object LastName, FirstName, EmailAddress, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
+            Export-Csv -Path $OutFile 
+    }
 }
 else {
-    Write-Host "Exporting all users to $OutFile..."
-    $Users | 
-        Select-Object LastName, FirstName, EmailAddress, @{Expression={$_.ConsistencyGUID -join '-'}}, Note |
-        Export-Csv -Path $OutFile 
+    if ($ExportOnlyProblematicUsers) {
+        Write-Host "Exporting all users who may have account issues to $OutFile..."
+        $Users |
+            Where-Object Note -ne "" | 
+            Select-Object LastName, FirstName, EmailAddress, Note |
+            Export-Csv -Path $OutFile 
+    }
+    else {
+        Write-Host "Exporting all users to $OutFile..."
+        $Users | 
+            Select-Object LastName, FirstName, EmailAddress, Note |
+            Export-Csv -Path $OutFile 
+    }
 }
