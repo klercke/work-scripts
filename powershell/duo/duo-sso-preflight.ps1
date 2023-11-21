@@ -116,6 +116,7 @@ Write-Output "Checking AD..."
 Write-Output "Checking via sAMAccountName..."
 $ADDomain = Get-ADDomain
 $FailedSamAccountCount = 0
+$FailedRealNameCount = 0
 $NoConsistencyGuidCount = 0
 $NoEmailSetCount = 0
 $EmailIncorrectCount = 0
@@ -128,7 +129,7 @@ ForEach ($User in $Users) {
         }
     [Microsoft.ActiveDirectory.Management.ADAccount] $OnPremUser = Get-ADUser @p
     if ($OnPremUser -eq $()) {
-        # User was not found in AD
+        # User could not be found by username
         $User.UpdateNote("sAMAccountName not found")
         $FailedSamAccountCount++
 
@@ -140,32 +141,38 @@ ForEach ($User in $Users) {
             'Filter' = "(GivenName -eq '$($User.FirstName)') -and (Surname -eq '$($User.LastName)')"
         }
         $OnPremuser = Get-ADUser @p
+        if ($OnPremUser -eq $()) {
+            # User could not be found in AD by real name OR username
+            $User.UpdateNote("Real name not found in AD")
+            $FailedRealNameCount++
+        }
+        # Skip this iteration of the loop
+        Continue
+    }
+    $User.OnPremUPN = $OnPremUser.UserPrincipalName
+    if (!$OnPremUser.'mS-DS-ConsistencyGUID') {
+        # User can not sign in with Duo SSO if this is not set
+        $User.UpdateNote("mS-DS-ConsistencyGUID not set")
+        $NoConsistencyGuidCount++
     }
     else {
-        $User.OnPremUPN = $OnPremUser.UserPrincipalName
-        if (!$OnPremUser.'mS-DS-ConsistencyGUID') {
-            # User can not sign in with Duo SSO if this is not set
-            $User.UpdateNote("mS-DS-ConsistencyGUID not set")
-            $NoConsistencyGuidCount++
-        }
-        else {
-            $User.ConsistencyGUID = $OnPremUser.'mS-DS-ConsistencyGUID'
-        }
-        # Make sure user has email set
-        if (!$OnPremUser.Mail) {
-            $User.UpdateNote("AD mail attribute not set")
-            $NoEmailSetCount++
-        }
-        else {
-            # Make sure the email is correct
-            if ($OnPremUser.Mail -ne $User.EmailAddress) {
-                $User.UpdateNote("AD mail attribute incorrect")
-                $EmailIncorrectCount++
-            }
+        $User.ConsistencyGUID = $OnPremUser.'mS-DS-ConsistencyGUID'
+    }
+    # Make sure user has email set
+    if (!$OnPremUser.Mail) {
+        $User.UpdateNote("AD mail attribute not set")
+        $NoEmailSetCount++
+    }
+    else {
+        # Make sure the email is correct
+        if ($OnPremUser.Mail -ne $User.EmailAddress) {
+            $User.UpdateNote("AD mail attribute incorrect")
+            $EmailIncorrectCount++
         }
     }
 }
 Write-Output "$FailedSamAccountCount users could not be found by sAMAccountName"
+Write-Output "Of those $FailedSamAccountCount, $FailedRealNameCount could also not be found by real name"
 Write-Output "$NoConsistencyGuidCount users do not have mS-DS-ConsistencyGUID set"
 Write-Output "$NoEmailSetCount users do not have an email set in AD"
 Write-Output "$EmailIncorrectCount users have the wrong email set in AD"
