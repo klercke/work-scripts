@@ -172,7 +172,7 @@ ForEach ($User in $Users) {
     }
 }
 Write-Output "$FailedSamAccountCount users could not be found by sAMAccountName"
-Write-Output "Of those $FailedSamAccountCount, $FailedRealNameCount could also not be found by real name"
+Write-Output "`t Of those $FailedSamAccountCount, $FailedRealNameCount could also not be found by real name"
 Write-Output "$NoConsistencyGuidCount users do not have mS-DS-ConsistencyGUID set"
 Write-Output "$NoEmailSetCount users do not have an email set in AD"
 Write-Output "$EmailIncorrectCount users have the wrong email set in AD"
@@ -181,19 +181,48 @@ Write-Output "$EmailIncorrectCount users have the wrong email set in AD"
 # TODO: Add additional checks using other attributes. e.g. for users not found by ImmutableId, try to find them by email or full name
 Write-Output "Checking Entra..."
 Write-Output "Checking via mS-DS-ConsistencyGUID..."
-$UsersNotInEntraByGUID = 0
-foreach ($User in ($Users | Where-Object ConsistencyGUID)) {
-    $ImmutableId = [system.convert]::ToBase64String(([GUID]$User.ConsistencyGUID).ToByteArray())
+$UsersNotInEntraByGUIDCount = 0
+$UsersNotInEntraByEmailCount = 0
+$UsersNotInEntraByDisplayNameCount = 0
+foreach ($User in $Users) {
+    # This will fail if the user does not have a consistenctyGUID, so we make sure only those users get looked up
+    $ImmutableId = "0"
+    if ($User.ConsistencyGUID) {
+        $ImmutableId = [system.convert]::ToBase64String(([GUID]$User.ConsistencyGUID).ToByteArray())
+    }
     $EntraUser = Get-MgUser -Filter "onPremisesImmutableId eq '$ImmutableId'"
+    # Check by UPN
     if ($EntraUser) {
         $User.EntraUPN = $EntraUser.UserPrincipalName
     }
     else {
         $User.UpdateNote("Could not find Entra user by onPremisesImmutableId")
-        $UsersNotInEntraByGUID++
+        $UsersNotInEntraByGUIDCount++
+
+        # Check by email
+        $EntraUser = Get-MgUser -Filter "Mail eq '$($User.EmailAddress)'"
+        if ($EntraUser) {
+            $User.EntraUPN = $EntraUser.UserPrincipalName
+        }
+        else {
+            $User.UpdateNote("Could not find Entra user by email address")
+            $UsersNotInEntraByEmailCount++
+
+            # Check by real name
+            $EntraUser = Get-mguser -filter "DisplayName eq '$($($user.FirstName) + ' ' + $($user.LastName))'"
+            if ($EntraUser) {
+                $User.EntraUPN = $EntraUser.UserPrincipalName
+            }
+            else {
+                $User.UpdateNote("Could not find Entra user by display name")
+                $UsersNotInEntraByDisplayNameCount++
+            }
+        }
     }
 }
-Write-Output "$UsersNotInEntraByGUID could not be found in Entra by ImmutableId"
+Write-Output "$UsersNotInEntraByGUIDCount could not be found in Entra by ImmutableId"
+Write-Output "`t Of those $UsersNotInEntraByGUIDCount, $UsersNotInEntraByEmailCount could also not be found by email"
+Write-Output "`t Of those $UsersNotInEntraByEmailCount, $UsersNotInEntraByDisplayNameCount could also not be found by display name"
 
 # Export users to CSV
 if ($OutFile -eq "") { $OutFile = "./Duo-Preflight-$($EmailDomain.Replace('.', '-')).csv" }
