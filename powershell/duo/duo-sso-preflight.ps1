@@ -23,15 +23,15 @@ param(
 )
 
 # Check For required modules
-Write-Host ""
+Write-Output ""
 if (-Not(Get-Module -ListAvailable -Name ActiveDirectory)) {
-    Write-Host "The ActiveDirectory module is missing. Please see https://learn.microsoft.com/en-us/powershell/module/activedirectory/"
+    Write-Output "The ActiveDirectory module is missing. Please see https://learn.microsoft.com/en-us/powershell/module/activedirectory/"
     Read-Host "Press Enter to exit"
     Exit
 }
 Import-Module ActiveDirectory
 if (-Not(Get-Module -ListAvailable -Name Microsoft.Graph)) {
-    Write-Host "The Microsoft Graph module is missing. Please see https://learn.microsoft.com/en-us/powershell/module/microsoftgraph/"
+    Write-Output "The Microsoft Graph module is missing. Please see https://learn.microsoft.com/en-us/powershell/module/microsoftgraph/"
     Read-Host "Press Enter to exit"
     Exit
 }
@@ -70,11 +70,11 @@ class User {
 }
 
 # Connect to Entra ID
-Write-Host "Please sign in to Entra ID with an account that has User.Read.All permissions"
+Write-Output "Please sign in to Entra ID with an account that has User.Read.All permissions"
 Connect-MgGraph -Scopes "User.Read.All" -NoWelcome
 
 # Import users into an array of Users
-Write-Host "Importing users from CSV..."
+Write-Output "Importing users from CSV..."
 $UsersFromCsv = Import-Csv -Path $UserCsv
 $Users = @()
 ForEach ($User in $UsersFromCsv) {
@@ -83,24 +83,24 @@ ForEach ($User in $UsersFromCsv) {
 }
 $UserCount = $Users.Length
 $Users = $Users | Sort-Object -Property LastName
-Write-Host "Imported $UserCount users." 
+Write-Output "Imported $UserCount users." 
 
 # Find email domain
 $EmailDomain = ([mailaddress]$Users[0].EmailAddress).Host
 $EmailDomainConfirmed = ""
 While ($EmailDomainConfirmed.ToLower() -ne "y") {
-    Write-Host "Is $EmailDomain the email domain that will be federated?"
+    Write-Output "Is $EmailDomain the email domain that will be federated?"
     if (!($EmailDomainConfirmed = Read-Host "Email domain correct? [Y/n]")) {$EmailDomainConfirmed = "y"}
 
 
     if ($EmailDomainConfirmed.ToLower() -eq "n" ) {
-        Write-Host "Please enter the correct email domain WITHOUT the leading @ (ex. contoso.com):"
+        Write-Output "Please enter the correct email domain WITHOUT the leading @ (ex. contoso.com):"
         $EmailDomain = Read-Host "Email domain"
     }
 }
 
 # Check email address for each user and append "Incorrect email domain" to their notes if it is incorrect 
-Write-Host "Checking to make sure all users are on the correct email domain..."
+Write-Output "Checking to make sure all users are on the correct email domain..."
 $FailedEmailDomainCount = 0
 ForEach ($User in $Users) {
     $UserEmailDomain = ([mailaddress]$User.EmailAddress).Host
@@ -109,23 +109,37 @@ ForEach ($User in $Users) {
         $FailedEmailDomainCount++
     }
 }
-Write-Host "Found $FailedEmailDomainCount users with the incorrect email domain."
+Write-Output "Found $FailedEmailDomainCount users with the incorrect email domain."
 
 # Check AD accounts
-# TODO: Check for users by real name
-Write-Host "Checking AD..."
-Write-Host "Checking via sAMAccountName..."
+Write-Output "Checking AD..."
+Write-Output "Checking via sAMAccountName..."
 $ADDomain = Get-ADDomain
 $FailedSamAccountCount = 0
 $NoConsistencyGuidCount = 0
 $NoEmailSetCount = 0
 $EmailIncorrectCount = 0
 ForEach ($User in $Users) {
-    [Microsoft.ActiveDirectory.Management.ADAccount] $OnPremUser = Get-AdUser -SearchBase $ADDomain.DistinguishedName -Server $ADDomain.PDCEmulator -Property "mS-DS-ConsistencyGUID", Mail -Filter "SamAccountName -eq '$(([mailaddress]$User.EmailAddress).User)'"
+    $p = @{ 
+        'SearchBase' = $ADDomain.DistinguishedName;
+        'Server' = $ADDomain.PDCEmulator;
+        'Property' = "mS-DS-ConsistencyGUID", 'Mail';
+        'Filter' = "SamAccountName -eq '$(([mailaddress]$User.EmailAddress).User)'"
+        }
+    [Microsoft.ActiveDirectory.Management.ADAccount] $OnPremUser = Get-ADUser @p
     if ($OnPremUser -eq $()) {
         # User was not found in AD
         $User.UpdateNote("sAMAccountName not found")
         $FailedSamAccountCount++
+
+        # Try to find the user by looking up their real name
+        $p = @{
+            'SearchBase' = $ADDomain.DistinguishedName;
+            'Server' = $ADDomain.PDCEmulator;
+            'Property' = "mS-DS-ConsistencyGUID", 'Mail';
+            'Filter' = "(GivenName -eq '$($User.FirstName)') -and (Surname -eq '$($User.LastName)')"
+        }
+        $OnPremuser = Get-ADUser @p
     }
     else {
         $User.OnPremUPN = $OnPremUser.UserPrincipalName
@@ -151,15 +165,15 @@ ForEach ($User in $Users) {
         }
     }
 }
-Write-Host "$FailedSamAccountCount users could not be found by sAMAccountName"
-Write-Host "$NoConsistencyGuidCount users do not have mS-DS-ConsistencyGUID set"
-Write-Host "$NoEmailSetCount users do not have an email set in AD"
-Write-Host "$EmailIncorrectCount users have the wrong email set in AD"
+Write-Output "$FailedSamAccountCount users could not be found by sAMAccountName"
+Write-Output "$NoConsistencyGuidCount users do not have mS-DS-ConsistencyGUID set"
+Write-Output "$NoEmailSetCount users do not have an email set in AD"
+Write-Output "$EmailIncorrectCount users have the wrong email set in AD"
 
 # Check Entra ID Users
 # TODO: Add additional checks using other attributes. e.g. for users not found by ImmutableId, try to find them by email or full name
-Write-Host "Checking Entra..."
-Write-Host "Checking via mS-DS-ConsistencyGUID..."
+Write-Output "Checking Entra..."
+Write-Output "Checking via mS-DS-ConsistencyGUID..."
 $UsersNotInEntraByGUID = 0
 foreach ($User in ($Users | Where-Object ConsistencyGUID)) {
     $ImmutableId = [system.convert]::ToBase64String(([GUID]$User.ConsistencyGUID).ToByteArray())
@@ -172,20 +186,20 @@ foreach ($User in ($Users | Where-Object ConsistencyGUID)) {
         $UsersNotInEntraByGUID++
     }
 }
-Write-Host "$UsersNotInEntraByGUID could not be found in Entra by ImmutableId"
+Write-Output "$UsersNotInEntraByGUID could not be found in Entra by ImmutableId"
 
 # Export users to CSV
 if ($OutFile -eq "") { $OutFile = "./Duo-Preflight-$($EmailDomain.Replace('.', '-')).csv" }
 if ($VerboseExport) {
     if ($ExportOnlyProblematicUsers) {
-        Write-Host "Exporting all users who may have account issues to $OutFile..."
+        Write-Output "Exporting all users who may have account issues to $OutFile..."
         $Users |
             Where-Object Note -ne "" | 
             Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Label='ConsistencyGUID'; Expression={$_.ConsistencyGUID -join '-'}}, Note |
             Export-Csv -Path $OutFile 
     }
     else {
-        Write-Host "Exporting all users to $OutFile..."
+        Write-Output "Exporting all users to $OutFile..."
         $Users | 
             Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Label='ConsistencyGUID'; Expression={$_.ConsistencyGUID -join '-'}}, Note |
             Export-Csv -Path $OutFile 
@@ -193,14 +207,14 @@ if ($VerboseExport) {
 }
 else {
     if ($ExportOnlyProblematicUsers) {
-        Write-Host "Exporting all users who may have account issues to $OutFile..."
+        Write-Output "Exporting all users who may have account issues to $OutFile..."
         $Users |
             Where-Object Note -ne "" | 
             Select-Object LastName, FirstName, EmailAddress, Note |
             Export-Csv -Path $OutFile 
     }
     else {
-        Write-Host "Exporting all users to $OutFile..."
+        Write-Output "Exporting all users to $OutFile..."
         $Users | 
             Select-Object LastName, FirstName, EmailAddress, Note |
             Export-Csv -Path $OutFile 
