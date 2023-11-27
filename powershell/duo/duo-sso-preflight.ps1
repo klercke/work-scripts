@@ -75,28 +75,28 @@ class User {
 # https://github.com/PowerShell/PowerShell/issues/19218
 [Flags()] enum UserErrors {
     # Email errors
-    WrongEmailDomainError    = 1    # 0b0001
-    NoEmailAttributeError    = 2    # 0b0010
-    WrongEmailAttributeError = 4    # 0b0100
+    EmailWrongDomainError    = 1    # 0b0001
+    EmailNoAttributeError    = 2    # 0b0010
+    EmailAttributeWrongError = 4    # 0b0100
     # Reserved               = 8    # 0b1000
 
     # AD lookup errors
-    SearchAccountNameError  = 16    # 0b00010000
-    SearchRealNameError     = 32    # 0b00100000
+    ADSearchAccountNameError  = 16    # 0b00010000
+    ADSearchRealNameError     = 32    # 0b00100000
     # Reserved              = 64    # 0b01000000
     # Reserved              = 128   # 0b10000000
 
     # Entra connect errors
-    ConsistencyGuidMissingErorr = 256   # 0b000100000000
-    # Reserved                  = 512   # 0b001000000000
-    # Reserved                  = 1024  # 0b010000000000
-    # Reserved                  = 2048  # 0b100000000000
+    ConnectConsistencyGuidMissingErorr = 256   # 0b000100000000
+    # Reserved                         = 512   # 0b001000000000
+    # Reserved                         = 1024  # 0b010000000000
+    # Reserved                         = 2048  # 0b100000000000
 
     # Entra account errors
-    SearchImmutableIdError  = 4096  # 0b0001000000000000
-    SearchEmailError        = 8192  # 0b0010000000000000
-    SearchRealNameError     = 16384 # 0b0100000000000000
-    # Reserved              = 32769 # 0b1000000000000000
+    EntraSearchImmutableIdError  = 4096  # 0b0001000000000000
+    EntraSearchEmailError        = 8192  # 0b0010000000000000
+    ENtraSearchRealNameError     = 16384 # 0b0100000000000000
+    # Reserved                   = 32769 # 0b1000000000000000
 }
 
 # Connect to Entra ID
