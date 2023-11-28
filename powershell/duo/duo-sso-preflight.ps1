@@ -75,16 +75,16 @@ class User {
 # https://github.com/PowerShell/PowerShell/issues/19218
 [Flags()] enum UserErrors {
     # Email errors
-    EmailWrongDomainError    = 1    # 0b0001
-    EmailNoAttributeError    = 2    # 0b0010
-    EmailAttributeWrongError = 4    # 0b0100
-    # Reserved               = 8    # 0b1000
+    EmailDomainWrongError         = 1    # 0b0001
+    EmailAttributeEmptyError      = 2    # 0b0010
+    EmailAttributeWrongError      = 4    # 0b0100
+    # Reserved                    = 8    # 0b1000
 
     # AD lookup errors
     ADSearchAccountNameError  = 16    # 0b00010000
     ADSearchRealNameError     = 32    # 0b00100000
-    # Reserved              = 64    # 0b01000000
-    # Reserved              = 128   # 0b10000000
+    # Reserved                = 64    # 0b01000000
+    # Reserved                = 128   # 0b10000000
 
     # Entra connect errors
     ConnectConsistencyGuidMissingErorr = 256   # 0b000100000000
@@ -95,8 +95,29 @@ class User {
     # Entra account errors
     EntraSearchImmutableIdError  = 4096  # 0b0001000000000000
     EntraSearchEmailError        = 8192  # 0b0010000000000000
-    ENtraSearchRealNameError     = 16384 # 0b0100000000000000
+    EntraSearchRealNameError     = 16384 # 0b0100000000000000
     # Reserved                   = 32769 # 0b1000000000000000
+}
+
+# User error "localizations"
+# UserErrorDescriptions[UserError] = String
+$UserErrorDescriptions = @{
+    # Email errors
+    [UserErrors]::EmailDomainWrongError     = "Email domain does not match"
+    [UserErrors]::EmailAttributeEmptyError  = "AD email attribute empty"
+    [UserErrors]::EmailAttributeWrongError  = "AD email attribute does not match provided email"
+    
+    # AD lookup errors
+    [UserErrors]::ADSearchAccountNameError  = "Could not find user in AD when searching by username"
+    [UserErrors]::ADSearchRealNameError     = "Could not find user in AD when searching by real name"
+
+    # Entra connect errors
+    [UserErrors]::ConnectConsistencyGuidMissingErorr    = "AD mS-DS-ConsistencyGUID attribute empty"
+
+    # Entra account errors
+    [UserErrors]::EntraSearchImmutableIdError = "Could not find user in Entra when searching by ImmutableId"
+    [UserErrors]::EntraSearchEmailError       = "Could not find user in Entra when searching by email address"
+    [UserErrors]::EntraSearchRealNameError    = "Could not find user in Entra when searching by real name"
 }
 
 # Connect to Entra ID
