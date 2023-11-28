@@ -42,10 +42,12 @@ Import-Module Microsoft.Graph.Users
 # For example, Powershell (as of v7.4.0) will interpret 0b1000000000000000 as -32768
 # https://github.com/PowerShell/PowerShell/issues/19218
 [Flags()] enum UserError {
+    NoError = 0
+
     # Email errors
     EmailDomainIncorrectError     = 1    # 0b0001
     EmailAttributeEmptyError      = 2    # 0b0010
-    EmailAttributeWrongError      = 4    # 0b0100
+    EmailAttributeIncorrectError  = 4    # 0b0100
     # Reserved                    = 8    # 0b1000
 
     # AD lookup errors
@@ -71,9 +73,9 @@ Import-Module Microsoft.Graph.Users
 # UserErrorDescriptions[UserError] = String
 $UserErrorDescriptions = @{
     # Email errors
-    [UserError]::EmailDomainIncorrectError = "Email domain does not match"
-    [UserError]::EmailAttributeEmptyError  = "AD email attribute empty"
-    [UserError]::EmailAttributeWrongError  = "AD email attribute does not match provided email"
+    [UserError]::EmailDomainIncorrectError      = "Email domain does not match"
+    [UserError]::EmailAttributeEmptyError       = "AD email attribute empty"
+    [UserError]::EmailAttributeIncorrectError   = "AD email attribute does not match provided email"
     
     # AD lookup errors
     [UserError]::ADSearchAccountNameError  = "Could not find user in AD when searching by username"
@@ -108,6 +110,7 @@ class User {
         $this.FirstName = $FirstName
         $this.EmailAddress = $EmailAddress
         $this.Note = ""
+        $this.ErrorCode = [UserError]::NoError
     }
 
     # Update note to include reasons why this user may not be compliant
@@ -163,7 +166,7 @@ $FailedEmailDomainCount = 0
 ForEach ($User in $Users) {
     $UserEmailDomain = ([mailaddress]$User.EmailAddress).Host
     if ($UserEmailDomain -ne $EmailDomain) {
-        User.UpdateError($[UserErrors]::EmailAttributeIncorrectError)
+        $User.UpdateError([UserError]::EmailDomainIncorrectError)
         $FailedEmailDomainCount++
     }
 }
@@ -188,7 +191,7 @@ ForEach ($User in $Users) {
     [Microsoft.ActiveDirectory.Management.ADAccount] $OnPremUser = Get-ADUser @p
     if ($OnPremUser -eq $()) {
         # User could not be found by username
-        User.UpdateError($[UserErrors]::ADSearchAccountNameError)
+        $User.UpdateError([UserError]::ADSearchAccountNameError)
         $FailedSamAccountCount++
 
         # Try to find the user by looking up their real name
@@ -201,7 +204,7 @@ ForEach ($User in $Users) {
         $OnPremuser = Get-ADUser @p
         if ($OnPremUser -eq $()) {
             # User could not be found in AD by real name OR username
-            User.UpdateError($[UserErrors]::ADSearchRealNameError)
+            $User.UpdateError([UserError]::ADSearchRealNameError)
             $FailedRealNameCount++
         }
         # Skip this iteration of the loop
@@ -210,7 +213,7 @@ ForEach ($User in $Users) {
     $User.OnPremUPN = $OnPremUser.UserPrincipalName
     if (!$OnPremUser.'mS-DS-ConsistencyGUID') {
         # User can not sign in with Duo SSO if this is not set
-        User.UpdateError($[UserErrors]::ConnectConsistencyGuidMissingErorr)
+        $User.UpdateError([UserError]::ConnectConsistencyGuidMissingErorr)
         $NoConsistencyGuidCount++
     }
     else {
@@ -218,13 +221,13 @@ ForEach ($User in $Users) {
     }
     # Make sure user has email set
     if (!$OnPremUser.Mail) {
-        User.UpdateError($[UserErrors]::EmailAttributeEmptyError)
+        $User.UpdateError([UserError]::EmailAttributeEmptyError)
         $NoEmailSetCount++
     }
     else {
         # Make sure the email is correct
         if ($OnPremUser.Mail -ne $User.EmailAddress) {
-            User.UpdateError($[UserErrors]::EmailAttributeIncorrectError)
+            $User.UpdateError([UserError]::EmailAttributeIncorrectError)
             $EmailIncorrectCount++
         }
     }
@@ -254,7 +257,7 @@ foreach ($User in $Users) {
         $User.EntraUPN = $EntraUser.UserPrincipalName
     }
     else {
-        User.UpdateError($[UserErrors]::EntraSearchImmutableIdError)
+        $User.UpdateError([UserError]::EntraSearchImmutableIdError)
         $UsersNotInEntraByGUIDCount++
 
         # Check by email
@@ -263,7 +266,7 @@ foreach ($User in $Users) {
             $User.EntraUPN = $EntraUser.UserPrincipalName
         }
         else {
-            User.UpdateError($[UserErrors]::EntraSearchEmailError)
+            $User.UpdateError([UserError]::EntraSearchEmailError)
             $UsersNotInEntraByEmailCount++
 
             # Check by real name
@@ -272,7 +275,7 @@ foreach ($User in $Users) {
                 $User.EntraUPN = $EntraUser.UserPrincipalName
             }
             else {
-                User.UpdateError($[UserErrors]::EntraSearchRealNameError)
+                $User.UpdateError([UserError]::EntraSearchRealNameError)
                 $UsersNotInEntraByDisplayNameCount++
             }
         }
@@ -289,13 +292,13 @@ if ($VerboseExport) {
         Write-Output "Exporting all users who may have account issues to $OutFile..."
         $Users |
             Where-Object Note -ne "" | 
-            Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Label='ConsistencyGUID'; Expression={$_.ConsistencyGUID -join '-'}}, Note |
+            Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Label='ConsistencyGUID'; Expression={$_.ConsistencyGUID -join '-'}}, @{Label='ErrorCode'; Expression={[uint64]$_.ErrorCode}}, Note |
             Export-Csv -Path $OutFile 
     }
     else {
         Write-Output "Exporting all users to $OutFile..."
         $Users | 
-            Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Label='ConsistencyGUID'; Expression={$_.ConsistencyGUID -join '-'}}, Note |
+            Select-Object LastName, FirstName, EmailAddress, EntraUPN, OnPremUPN, @{Label='ConsistencyGUID'; Expression={$_.ConsistencyGUID -join '-'}}, @{Label='ErrorCode'; Expression={[uint64]$_.ErrorCode}}, Note |
             Export-Csv -Path $OutFile 
     }
 }
@@ -304,13 +307,13 @@ else {
         Write-Output "Exporting all users who may have account issues to $OutFile..."
         $Users |
             Where-Object Note -ne "" | 
-            Select-Object LastName, FirstName, EmailAddress, Note |
+            Select-Object LastName, FirstName, EmailAddress, @{Label='ErrorCode'; Expression={[uint64]$_.ErrorCode}}, Note |
             Export-Csv -Path $OutFile 
     }
     else {
         Write-Output "Exporting all users to $OutFile..."
         $Users | 
-            Select-Object LastName, FirstName, EmailAddress, Note |
+            Select-Object LastName, FirstName, EmailAddress, @{Label='ErrorCode'; Expression={[uint64]$_.ErrorCode}}, Note |
             Export-Csv -Path $OutFile 
     }
 }
