@@ -37,45 +37,13 @@ if (-Not(Get-Module -ListAvailable -Name Microsoft.Graph)) {
 }
 Import-Module Microsoft.Graph.Users
 
-# Define User class
-class User {
-    [string]        $LastName
-    [string]        $FirstName
-    [mailaddress]   $EmailAddress
-    [string]        $OnPremUPN
-    [string]        $EntraUPN
-    [array]         $ConsistencyGUID
-    [string]        $Note
-
-    User (
-        [string]$LastName,
-        [string]$FirstName,
-        [mailaddress]$EmailAddress
-    ) {
-        $this.LastName = $LastName
-        $this.FirstName = $FirstName
-        $this.EmailAddress = $EmailAddress
-        $this.Note = ""
-    }
-
-    # Update note to include reasons why this user may not be compliant
-    [void] UpdateNote([string] $TextToAdd) {
-        if ($this.Note -eq "") {
-            $this.Note = $TextToAdd
-        }
-        else {
-            $this.Note += (', ' + $TextToAdd)
-        }
-    }
-}
-
 # User errors enum
 # Note that the binary representations are not necessarily correct.
 # For example, Powershell (as of v7.4.0) will interpret 0b1000000000000000 as -32768
 # https://github.com/PowerShell/PowerShell/issues/19218
-[Flags()] enum UserErrors {
+[Flags()] enum UserError {
     # Email errors
-    EmailDomainWrongError         = 1    # 0b0001
+    EmailDomainIncorrectError     = 1    # 0b0001
     EmailAttributeEmptyError      = 2    # 0b0010
     EmailAttributeWrongError      = 4    # 0b0100
     # Reserved                    = 8    # 0b1000
@@ -103,21 +71,60 @@ class User {
 # UserErrorDescriptions[UserError] = String
 $UserErrorDescriptions = @{
     # Email errors
-    [UserErrors]::EmailDomainWrongError     = "Email domain does not match"
-    [UserErrors]::EmailAttributeEmptyError  = "AD email attribute empty"
-    [UserErrors]::EmailAttributeWrongError  = "AD email attribute does not match provided email"
+    [UserError]::EmailDomainIncorrectError = "Email domain does not match"
+    [UserError]::EmailAttributeEmptyError  = "AD email attribute empty"
+    [UserError]::EmailAttributeWrongError  = "AD email attribute does not match provided email"
     
     # AD lookup errors
-    [UserErrors]::ADSearchAccountNameError  = "Could not find user in AD when searching by username"
-    [UserErrors]::ADSearchRealNameError     = "Could not find user in AD when searching by real name"
+    [UserError]::ADSearchAccountNameError  = "Could not find user in AD when searching by username"
+    [UserError]::ADSearchRealNameError     = "Could not find user in AD when searching by real name"
 
     # Entra connect errors
-    [UserErrors]::ConnectConsistencyGuidMissingErorr    = "AD mS-DS-ConsistencyGUID attribute empty"
+    [UserError]::ConnectConsistencyGuidMissingErorr    = "AD mS-DS-ConsistencyGUID attribute empty"
 
     # Entra account errors
-    [UserErrors]::EntraSearchImmutableIdError = "Could not find user in Entra when searching by ImmutableId"
-    [UserErrors]::EntraSearchEmailError       = "Could not find user in Entra when searching by email address"
-    [UserErrors]::EntraSearchRealNameError    = "Could not find user in Entra when searching by real name"
+    [UserError]::EntraSearchImmutableIdError = "Could not find user in Entra when searching by ImmutableId"
+    [UserError]::EntraSearchEmailError       = "Could not find user in Entra when searching by email address"
+    [UserError]::EntraSearchRealNameError    = "Could not find user in Entra when searching by real name"
+}
+
+# Define User class
+class User {
+    [string]        $LastName
+    [string]        $FirstName
+    [mailaddress]   $EmailAddress
+    [string]        $OnPremUPN
+    [string]        $EntraUPN
+    [array]         $ConsistencyGUID
+    [string]        $Note
+    [UserError]     $ErrorCode
+
+    User (
+        [string]$LastName,
+        [string]$FirstName,
+        [mailaddress]$EmailAddress
+    ) {
+        $this.LastName = $LastName
+        $this.FirstName = $FirstName
+        $this.EmailAddress = $EmailAddress
+        $this.Note = ""
+    }
+
+    # Update note to include reasons why this user may not be compliant
+    [void] UpdateNote([string] $TextToAdd) {
+        if ($this.Note -eq "") {
+            $this.Note = $TextToAdd
+        }
+        else {
+            $this.Note += (', ' + $TextToAdd)
+        }
+    }
+
+    [void] UpdateError([UserError] $ErrorToAdd) {
+        $this.ErrorCode += $ErrorToAdd
+
+        $this.UpdateNote($Global:UserErrorDescriptions[$ErrorToAdd])
+    }
 }
 
 # Connect to Entra ID
@@ -156,7 +163,7 @@ $FailedEmailDomainCount = 0
 ForEach ($User in $Users) {
     $UserEmailDomain = ([mailaddress]$User.EmailAddress).Host
     if ($UserEmailDomain -ne $EmailDomain) {
-        $User.UpdateNote("Wrong email domain")
+        User.UpdateError($[UserErrors]::EmailAttributeIncorrectError)
         $FailedEmailDomainCount++
     }
 }
@@ -181,7 +188,7 @@ ForEach ($User in $Users) {
     [Microsoft.ActiveDirectory.Management.ADAccount] $OnPremUser = Get-ADUser @p
     if ($OnPremUser -eq $()) {
         # User could not be found by username
-        $User.UpdateNote("sAMAccountName not found")
+        User.UpdateError($[UserErrors]::ADSearchAccountNameError)
         $FailedSamAccountCount++
 
         # Try to find the user by looking up their real name
@@ -194,7 +201,7 @@ ForEach ($User in $Users) {
         $OnPremuser = Get-ADUser @p
         if ($OnPremUser -eq $()) {
             # User could not be found in AD by real name OR username
-            $User.UpdateNote("Real name not found in AD")
+            User.UpdateError($[UserErrors]::ADSearchRealNameError)
             $FailedRealNameCount++
         }
         # Skip this iteration of the loop
@@ -203,7 +210,7 @@ ForEach ($User in $Users) {
     $User.OnPremUPN = $OnPremUser.UserPrincipalName
     if (!$OnPremUser.'mS-DS-ConsistencyGUID') {
         # User can not sign in with Duo SSO if this is not set
-        $User.UpdateNote("mS-DS-ConsistencyGUID not set")
+        User.UpdateError($[UserErrors]::ConnectConsistencyGuidMissingErorr)
         $NoConsistencyGuidCount++
     }
     else {
@@ -211,13 +218,13 @@ ForEach ($User in $Users) {
     }
     # Make sure user has email set
     if (!$OnPremUser.Mail) {
-        $User.UpdateNote("AD mail attribute not set")
+        User.UpdateError($[UserErrors]::EmailAttributeEmptyError)
         $NoEmailSetCount++
     }
     else {
         # Make sure the email is correct
         if ($OnPremUser.Mail -ne $User.EmailAddress) {
-            $User.UpdateNote("AD mail attribute incorrect")
+            User.UpdateError($[UserErrors]::EmailAttributeIncorrectError)
             $EmailIncorrectCount++
         }
     }
@@ -247,7 +254,7 @@ foreach ($User in $Users) {
         $User.EntraUPN = $EntraUser.UserPrincipalName
     }
     else {
-        $User.UpdateNote("Could not find Entra user by onPremisesImmutableId")
+        User.UpdateError($[UserErrors]::EntraSearchImmutableIdError)
         $UsersNotInEntraByGUIDCount++
 
         # Check by email
@@ -256,7 +263,7 @@ foreach ($User in $Users) {
             $User.EntraUPN = $EntraUser.UserPrincipalName
         }
         else {
-            $User.UpdateNote("Could not find Entra user by email address")
+            User.UpdateError($[UserErrors]::EntraSearchEmailError)
             $UsersNotInEntraByEmailCount++
 
             # Check by real name
@@ -265,7 +272,7 @@ foreach ($User in $Users) {
                 $User.EntraUPN = $EntraUser.UserPrincipalName
             }
             else {
-                $User.UpdateNote("Could not find Entra user by display name")
+                User.UpdateError($[UserErrors]::EntraSearchRealNameError)
                 $UsersNotInEntraByDisplayNameCount++
             }
         }
