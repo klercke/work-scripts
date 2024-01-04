@@ -6,7 +6,7 @@ These scripts all operate within an Active Directoy environment. You will need t
 
 These scripts will manage users in a hybrid (Entra Connect) environment.
 
-### add-admin-on-all-mailboxes.ps1
+### set-consistency-guid.ps1
 
 This script will connect to a specified Exchange online session and give the specified user full access to all user mailboxes in that Exchange tenant.
 
