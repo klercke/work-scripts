@@ -8,7 +8,7 @@ These scripts will manage users in a hybrid (Entra Connect) environment.
 
 ### set-consistency-guid.ps1
 
-This script will connect to a specified Exchange online session and give the specified user full access to all user mailboxes in that Exchange tenant.
+This script will take a the specified user's existing mS-DS-ConsistencyGUID and Convert the GUID to ByteArray, which is what AD is expecting.
 
 #### Usage
 
